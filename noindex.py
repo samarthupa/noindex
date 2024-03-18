@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 import concurrent.futures
 import pandas as pd
+import base64
 
 def check_index_status(url):
     try:
@@ -31,17 +32,13 @@ def check_index_status(url):
 
 def check_urls(urls):
     results = []
+    processed_count = 0
+    total_urls = len(urls)
     with st.spinner('Processing...'):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_url = {executor.submit(check_index_status, url): url for url in urls}
-            for i, future in enumerate(concurrent.futures.as_completed(future_to_url)):
-                url = future_to_url[future]
-                try:
-                    result = future.result()
-                    results.append((url, result))
-                    st.text(f"Processed {i+1}/{len(urls)} URLs")
-                except Exception as e:
-                    results.append((url, str(e)))
+        for result in concurrent.futures.ThreadPoolExecutor(max_workers=10).map(check_index_status, urls):
+            results.append(result)
+            processed_count += 1
+            st.text(f"Processed {processed_count}/{total_urls} URLs", False)
     return results
 
 def main():
@@ -54,7 +51,7 @@ def main():
     if st.button('Check URLs'):
         results = check_urls(urls)
         st.write('## Results:')
-        df = pd.DataFrame(results, columns=['URL', 'Index Status'])
+        df = pd.DataFrame(list(zip(urls, results)), columns=['URL', 'Index Status'])
         st.table(df)
         st.markdown(get_table_download_link(df), unsafe_allow_html=True)
 
