@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 import concurrent.futures
+import pandas as pd
 
 def check_index_status(url):
     try:
@@ -33,13 +34,12 @@ def check_urls(urls):
     with st.spinner('Processing...'):
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(check_index_status, url): url for url in urls}
-            for future in concurrent.futures.as_completed(future_to_url):
+            for i, future in enumerate(concurrent.futures.as_completed(future_to_url)):
                 url = future_to_url[future]
                 try:
                     result = future.result()
                     results.append((url, result))
-                    progress = len(results) / len(urls)
-                    st.progress(progress)
+                    st.text(f"Processed {i+1}/{len(urls)} URLs")
                 except Exception as e:
                     results.append((url, str(e)))
     return results
@@ -54,7 +54,15 @@ def main():
     if st.button('Check URLs'):
         results = check_urls(urls)
         st.write('## Results:')
-        st.table(results)
+        df = pd.DataFrame(results, columns=['URL', 'Index Status'])
+        st.table(df)
+        st.markdown(get_table_download_link(df), unsafe_allow_html=True)
+
+def get_table_download_link(df):
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    href = f'<a href="data:file/csv;base64,{b64}" download="index_results.csv">Download CSV File</a>'
+    return href
 
 if __name__ == '__main__':
     main()
