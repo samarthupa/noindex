@@ -30,20 +30,19 @@ def check_index_status(url):
     except Exception as e:
         return str(e)
 
+def check_url(url):
+    return url, check_index_status(url)
+
 def check_urls(urls):
     results = []
     with st.spinner('Processing...'):
         total_urls = len(urls)
         progress_bar = st.progress(0)
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_url = {executor.submit(check_index_status, url): url for url in urls}
-            for i, future in enumerate(concurrent.futures.as_completed(future_to_url)):
-                url = future_to_url[future]
-                try:
-                    result = future.result()
-                    results.append((url, result))
-                except Exception as e:
-                    results.append((url, str(e)))
+            futures = [executor.submit(check_url, url) for url in urls]
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                url, result = future.result()
+                results.append((url, result))
                 progress = (i + 1) / total_urls
                 progress_bar.progress(progress)
     return results
