@@ -32,13 +32,20 @@ def check_index_status(url):
 
 def check_urls(urls):
     results = []
-    processed_count = 0
-    total_urls = len(urls)
     with st.spinner('Processing...'):
-        for result in concurrent.futures.ThreadPoolExecutor(max_workers=10).map(check_index_status, urls):
-            results.append(result)
-            processed_count += 1
-            st.text(f"Processed {processed_count}/{total_urls} URLs", False)
+        total_urls = len(urls)
+        progress_bar = st.progress(0)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_url = {executor.submit(check_index_status, url): url for url in urls}
+            for i, future in enumerate(concurrent.futures.as_completed(future_to_url)):
+                url = future_to_url[future]
+                try:
+                    result = future.result()
+                    results.append((url, result))
+                except Exception as e:
+                    results.append((url, str(e)))
+                progress = (i + 1) / total_urls
+                progress_bar.progress(progress)
     return results
 
 def main():
@@ -51,15 +58,15 @@ def main():
     if st.button('Check URLs'):
         results = check_urls(urls)
         st.write('## Results:')
-        df = pd.DataFrame(list(zip(urls, results)), columns=['URL', 'Index Status'])
-        st.table(df)
-        st.markdown(get_table_download_link(df), unsafe_allow_html=True)
+        st.table(results)
 
-def get_table_download_link(df):
-    csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="index_results.csv">Download CSV File</a>'
-    return href
+        # Download CSV button
+        if len(results) > 0:
+            df = pd.DataFrame(results, columns=['URL', 'Index Status'])
+            csv = df.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            href = f'<a href="data:file/csv;base64,{b64}" download="url_index_results.csv">Download CSV</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()
