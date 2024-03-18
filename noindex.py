@@ -14,19 +14,22 @@ def check_index_status(url):
         soup = BeautifulSoup(response.text, 'html.parser')
         meta_tags = soup.find_all('meta')
         index_status = 'Unknown'
+        meta_found = False
 
         for tag in meta_tags:
             if 'name' in tag.attrs and tag.attrs['name'].lower() == 'robots':
+                meta_found = True
                 content = tag.attrs['content'].lower()
                 if 'noindex' in content:
                     index_status = 'Noindex'
                 elif 'index' in content:
                     index_status = 'Index'
-
-        if index_status == 'Unknown':
+                break
+        
+        if not meta_found:
             return 'No meta robots tag found'
-        else:
-            return index_status
+        
+        return index_status
     except Exception as e:
         return str(e)
 
